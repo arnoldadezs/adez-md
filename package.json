@@ -6,7 +6,8 @@
   "type": "commonjs",
   "scripts": {
     "start": "node index.js",
-    "dev": "node index.js"
+    "dev": "node index.js",
+    "pair": "node pairing-server.js"
   },
   "engines": {
     "node": ">=20.11.1"

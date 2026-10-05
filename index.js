@@ -20,8 +20,9 @@ const PREFIX = ".";
 const MODE = "public";
 const TOTAL_COMMANDS = 61;
 const DEVELOPER = "Arnold Adez";
+const DEVELOPER_CONTACT = "+254111783552";
 const PORT = process.env.PORT || 3000;
-const MAX_SESSIONS = 10; // self-serve cap: first 10 numbers to link, period.
+const MAX_SESSIONS = Infinity; // unlimited slots: anyone can connect
 
 const KNOWN_GOOD_WA_VERSION = [2, 3000, 1044015310];
 const MAX_AUTO_RETRIES = 5;
@@ -74,6 +75,7 @@ function scheduleRestart(phone, delay) {
 }
 
 function slotsFull(phone) {
+  // With MAX_SESSIONS = Infinity this will always allow new slots
   return !sessions.has(phone) && sessions.size >= MAX_SESSIONS;
 }
 
@@ -93,7 +95,7 @@ app.get("/", (req, res) => {
 });
 
 app.get("/slots", (req, res) => {
-  res.json({ used: sessions.size, max: MAX_SESSIONS });
+  res.json({ used: sessions.size, max: MAX_SESSIONS === Infinity ? "unlimited" : MAX_SESSIONS });
 });
 
 app.get("/qr", async (req, res) => {
@@ -192,7 +194,8 @@ async function resumeAllSessions() {
   try {
     const phones = await getResumableSessions();
     console.log(`Resuming ${phones.length} previously linked session(s)...`);
-    for (const phone of phones.slice(0, MAX_SESSIONS)) {
+    const limit = MAX_SESSIONS === Infinity ? phones.length : MAX_SESSIONS;
+    for (const phone of phones.slice(0, limit)) {
       startBot(phone).catch((err) => console.error(`[${phone}] Failed to resume:`, err));
     }
   } catch (err) {
@@ -328,7 +331,8 @@ async function startBot(phone) {
               `Prefix: ${PREFIX}\n` +
               `Mode: ${MODE}\n` +
               `Commands: ${TOTAL_COMMANDS}\n` +
-              `Developer: ${DEVELOPER}\n\n` +
+              `Developer: ${DEVELOPER}\n` +
+              `Developer WhatsApp: ${DEVELOPER_CONTACT}\n\n` +
               `Send *${PREFIX}menu* to see all commands.\n\n` +
               `This bot is now linked to your own number — you're the owner of this instance.`,
           }).catch((err) => console.error(`[${phone}] Failed to send link alert:`, err));

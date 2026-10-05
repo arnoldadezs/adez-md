@@ -1,14 +1,25 @@
 {
   "name": "adez-md",
-  "version": "1.0.0",
-  "description": "ADEZ MD - WhatsApp bot built with Baileys",
+  "version": "3.0.0",
+  "description": "ADEZ MD - WhatsApp bot powered by ADEZ TECH",
   "main": "index.js",
-  "engines": {
-    "node": "20.11.1"
-  },
+  "type": "commonjs",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "node index.js"
   },
+  "engines": {
+    "node": ">=20.11.1"
+  },
+  "keywords": [
+    "adez-md",
+    "adeztech",
+    "whatsapp-bot",
+    "baileys",
+    "multi-device"
+  ],
+  "author": "Arnold Adez",
+  "license": "MIT",
   "dependencies": {
     "@whiskeysockets/baileys": "6.7.18",
     "@hapi/boom": "^10.0.1",

@@ -337,7 +337,7 @@ class PairingManager {
             }
           }
 
-          this._handleDisconnect(phone, statusCode, clearSession);
+          this._handleDisconnect(phone, lastDisconnect?.error, clearSession);
         }
       });
 
@@ -377,28 +377,27 @@ class PairingManager {
    * Handle disconnect logic
    * 
    * CRITICAL FIX: Only reset on truly bad sessions
-   * - loggedOut (403/401) = user manually logged out
-   * - badSession (401) = device auth was revoked
-   * 
-   * DO NOT reset on temporary issues:
-   * - 408 Request timeout = network hiccup, retry
-   * - 500 Internal server error = temporary server issue, retry
-   * - 515 restartRequired = WhatsApp service restarting normally, retry
+   * Pass the raw error object from Baileys, not the HTTP status code
    */
-  async _handleDisconnect(phone, statusCode, clearSession) {
+  async _handleDisconnect(phone, error, clearSession) {
     const entry = this.getEntry(phone);
     entry.status = "disconnected";
     this.onStatusChange(phone, "disconnected");
     this.onDisconnected(phone);
 
+    // Check the actual Baileys disconnect reason enum
+    const reason = error?.output?.statusCode ?? 0;
+    console.log(`[${phone}] Disconnect reason enum: ${reason}, DisconnectReason.loggedOut=${DisconnectReason.loggedOut}, DisconnectReason.badSession=${DisconnectReason.badSession}`);
+
     // ONLY these codes should trigger a hard session reset
+    // These are TRUE auth failures, not transient network issues
     const shouldResetSession =
-      statusCode === DisconnectReason.loggedOut ||
-      statusCode === DisconnectReason.badSession;
+      reason === DisconnectReason.loggedOut ||
+      reason === DisconnectReason.badSession;
 
     if (shouldResetSession) {
       console.log(
-        `[${phone}] 🧹 Session must be reset (reason: ${statusCode})`
+        `[${phone}] 🧹 Session must be reset (logged out or bad session)`
       );
       entry.retryCount = 0;
       entry.hasAlertedOwner = false;
@@ -418,7 +417,7 @@ class PairingManager {
       return;
     }
 
-    // Temporary disconnect (408, 500, 515, etc.): retry with backoff
+    // Temporary disconnect (408, 500, 515, restartRequired, etc.): retry with backoff
     entry.retryCount++;
     const delay =
       entry.retryCount > this.MAX_AUTO_RETRIES

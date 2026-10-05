@@ -243,7 +243,7 @@ async function startBot(phone) {
     const s = makeWASocket({
       auth: state,
       version,
-      browser: Browsers.macOS("Safari"),
+      browser: Browsers.macOS("Chrome"),
       logger: pino({ level: "silent" }),
       printQRInTerminal: false,
     });
@@ -364,5 +364,4 @@ async function startBot(phone) {
 // that explicit and keeps the same delayed-restart behavior.
 function scheduleRestartOnFreshEntry(phone, delay) {
   setTimeout(() => startBot(phone), delay);
-}
-  
+                        }

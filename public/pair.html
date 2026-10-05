@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ADEZ MD - Session Portal</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      background: #05060a;
+      color: #e6f1ff;
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      text-align: center;
+      padding: 30px 20px;
+    }
+    .title {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      background: linear-gradient(90deg, #22d3ee, #a855f7, #ec4899);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      color: #8b9bbd;
+      font-size: 13px;
+      margin-bottom: 30px;
+    }
+    .card {
+      width: 100%;
+      max-width: 320px;
+      padding: 2px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, #22d3ee, #a855f7, #ec4899, #22d3ee);
+    }
+    .card-inner {
+      background: #0a0b12;
+      border-radius: 18px;
+      padding: 28px 22px;
+    }
+    .logo {
+      font-size: 13px;
+      letter-spacing: 3px;
+      color: #67e8f9;
+      font-weight: bold;
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      text-align: left;
+      font-size: 13px;
+      color: #9cb3d9;
+      margin-bottom: 8px;
+    }
+    .input-wrap {
+      display: flex;
+      align-items: center;
+      background: #05060a;
+      border: 1px solid #22304d;
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 6px;
+    }
+    .input-wrap span { margin-right: 8px; opacity: 0.7; }
+    input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #e6f1ff;
+      font-size: 15px;
+    }
+    .hint {
+      font-size: 11px;
+      color: #5c6b8a;
+      text-align: left;
+      margin-bottom: 20px;
+    }
+    .btn-primary {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(90deg, #a855f7, #ec4899);
+      color: white;
+      font-weight: bold;
+      font-size: 14px;
+      letter-spacing: 1px;
+      cursor: pointer;
+    }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .divider {
+      display: flex;
+      align-items: center;
+      color: #5c6b8a;
+      font-size: 12px;
+      margin: 18px 0;
+    }
+    .divider::before, .divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: #22304d;
+    }
+    .divider span { padding: 0 12px; }
+    .btn-secondary {
+      width: 100%;
+      padding: 13px;
+      border-radius: 10px;
+      border: 1px solid #22304d;
+      background: transparent;
+      color: #9cb3d9;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    #codeResult {
+      margin-top: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    #codeText {
+      font-size: 22px;
+      letter-spacing: 3px;
+      color: #67e8f9;
+      font-weight: bold;
+    }
+    #copyBtn {
+      background: #15192b;
+      border: 1px solid #22304d;
+      border-radius: 8px;
+      width: 34px;
+      height: 34px;
+      font-size: 16px;
+      color: #9cb3d9;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    #copyBtn:active { transform: scale(0.95); }
+    #qrWrap { display: none; margin-top: 18px; }
+    img#qrImg {
+      width: 220px;
+      height: 220px;
+      background: white;
+      padding: 10px;
+      border-radius: 12px;
+    }
+    #linkedBanner {
+      display: none;
+      margin-top: 18px;
+      padding: 14px 16px;
+      background: #0a1f1a;
+      color: #6ee7b7;
+      border: 1px solid #10b981;
+      border-radius: 10px;
+      font-weight: bold;
+      font-size: 14px;
+    }
+    .status {
+      margin-top: 14px;
+      font-size: 12px;
+      color: #5c6b8a;
+    }
+  </style>
+</head>
+<body>
+  <div class="title">ADEZ MD</div>
+  <div class="subtitle">WhatsApp Bot Session Portal</div>
+  <div class="subtitle" id="slotsLine" style="margin-top: -22px; margin-bottom: 24px;"></div>
+
+  <div class="card">
+    <div class="card-inner">
+      <div class="logo">⚡ ADEZ TECH</div>
+
+      <label>WhatsApp Number</label>
+      <div class="input-wrap">
+        <span>📞</span>
+        <input id="numberInput" type="text" placeholder="e.g. 254111783552" />
+      </div>
+      <div class="hint">Country code without '+' (e.g. 254xxxxxxxxx) — limited to the first 10 numbers to link</div>
+
+      <button class="btn-primary" onclick="requestCode()">GET PAIR CODE</button>
+
+      <div class="divider"><span>OR</span></div>
+
+      <button class="btn-secondary" onclick="showQR()">▦ Scan QR Code Instead</button>
+
+      <div id="codeResult">
+        <span id="codeText"></span>
+        <button id="copyBtn" onclick="copyCode()" title="Copy code">📋</button>
+      </div>
+
+      <div id="qrWrap">
+        <img id="qrImg" alt="QR Code" />
+      </div>
+
+      <div id="linkedBanner">✅ Linked successfully! You can close this page.</div>
+      <div class="status" id="statusLine"></div>
+    </div>
+  </div>
+
+  <script>
+    let currentPhone = null;
+    let pollTimer = null;
+
+    function getPhone() {
+      return document.getElementById('numberInput').value.trim().replace(/[^0-9]/g, '');
+    }
+
+    async function loadSlots() {
+      try {
+        const res = await fetch('/slots');
+        const data = await res.json();
+        document.getElementById('slotsLine').textContent = `${data.used}/${data.max} slots linked`;
+      } catch (err) {
+        // ignore
+      }
+    }
+    loadSlots();
+
+    function startPolling(phone) {
+      if (pollTimer) clearInterval(pollTimer);
+      currentPhone = phone;
+      pollTimer = setInterval(checkStatus, 3000);
+      checkStatus();
+    }
+
+    async function checkStatus() {
+      if (!currentPhone) return;
+      try {
+        const res = await fetch('/status?phone=' + encodeURIComponent(currentPhone));
+        const data = await res.json();
+        const statusLine = document.getElementById('statusLine');
+
+        if (data.status === 'connected') {
+          document.getElementById('linkedBanner').style.display = 'block';
+          document.getElementById('qrWrap').style.display = 'none';
+          statusLine.textContent = '';
+          clearInterval(pollTimer);
+          loadSlots();
+        } else if (data.status === 'pairing') {
+          statusLine.textContent = 'Waiting for you to scan/enter the code on your phone...';
+          const img = document.getElementById('qrImg');
+          if (document.getElementById('qrWrap').style.display !== 'none') {
+            img.src = '/qr?phone=' + encodeURIComponent(currentPhone) + '&t=' + Date.now();
+          }
+        }
+      } catch (err) {
+        // ignore transient errors, keep polling
+      }
+    }
+
+    async function showQR() {
+      const phone = getPhone();
+      if (!phone) { alert('Enter your phone number first.'); return; }
+
+      document.getElementById('linkedBanner').style.display = 'none';
+      document.getElementById('qrWrap').style.display = 'block';
+
+      const startRes = await fetch('/start-session?phone=' + encodeURIComponent(phone));
+      if (startRes.status === 403) {
+        const data = await startRes.json();
+        document.getElementById('qrWrap').style.display = 'none';
+        alert(data.error || 'All slots are full.');
+        return;
+      }
+
+      document.getElementById('qrImg').src = '/qr?phone=' + encodeURIComponent(phone) + '&t=' + Date.now();
+      startPolling(phone);
+    }
+
+    let lastCode = '';
+
+    async function requestCode() {
+      const phone = getPhone();
+      if (!phone) { alert('Enter your phone number first.'); return; }
+
+      const codeText = document.getElementById('codeText');
+      const copyBtn = document.getElementById('copyBtn');
+      codeText.textContent = 'Requesting...';
+      copyBtn.style.display = 'none';
+      document.getElementById('linkedBanner').style.display = 'none';
+      document.getElementById('qrWrap').style.display = 'none';
+
+      try {
+        const res = await fetch('/request-code?phone=' + encodeURIComponent(phone));
+        const data = await res.json();
+        if (data.code) {
+          lastCode = data.code;
+          codeText.textContent = data.code;
+          copyBtn.style.display = 'flex';
+          startPolling(phone);
+        } else {
+          codeText.textContent = data.error || 'Something went wrong.';
+        }
+      } catch (err) {
+        codeText.textContent = 'Request failed. Try again.';
+      }
+    }
+
+    async function copyCode() {
+      if (!lastCode) return;
+      const copyBtn = document.getElementById('copyBtn');
+      try {
+        await navigator.clipboard.writeText(lastCode);
+        copyBtn.textContent = '✅';
+        setTimeout(() => { copyBtn.textContent = '📋'; }, 1500);
+      } catch (err) {
+        // Fallback for browsers without clipboard API access
+        const temp = document.createElement('textarea');
+        temp.value = lastCode;
+        document.body.appendChild(temp);
+        temp.select();
+        document.execCommand('copy');
+        document.body.removeChild(temp);
+        copyBtn.textContent = '✅';
+        setTimeout(() => { copyBtn.textContent = '📋'; }, 1500);
+      }
+    }
+  </script>
+</body>
+</html>

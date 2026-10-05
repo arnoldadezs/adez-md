@@ -3,206 +3,453 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ADEZ MD - Powered by ADEZ TECH</title>
+  <title>ADEZ MD | Pair WhatsApp</title>
   <style>
+    :root {
+      --bg-1: #07111f;
+      --bg-2: #0d1b2a;
+      --panel: rgba(10, 19, 31, 0.82);
+      --panel-border: rgba(148, 163, 184, 0.2);
+      --primary: #7c3aed;
+      --primary-2: #22d3ee;
+      --accent: #f472b6;
+      --text: #ebf3ff;
+      --muted: #9fb4d2;
+      --success: #34d399;
+      --warning: #fbbf24;
+      --danger: #f87171;
+      --shadow: 0 24px 80px rgba(15, 23, 42, 0.65);
+    }
+
     * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      min-height: 100vh;
+      font-family: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(124, 58, 237, 0.28), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(34, 211, 238, 0.25), transparent 26%),
+        linear-gradient(135deg, var(--bg-1), var(--bg-2));
+      color: var(--text);
+    }
+
     body {
-      background: #05060a;
-      color: #e6f1ff;
-      font-family: 'Segoe UI', sans-serif;
+      display: grid;
+      place-items: center;
+      padding: 28px 18px;
+    }
+
+    .page-shell {
+      width: min(100%, 1080px);
+      display: grid;
+      grid-template-columns: 1.08fr 0.92fr;
+      gap: 28px;
+      align-items: stretch;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--panel-border);
+      border-radius: 28px;
+      background: rgba(7, 17, 31, 0.7);
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow);
+      padding: 32px 26px;
       display: flex;
       flex-direction: column;
-      align-items: center;
       justify-content: center;
-      min-height: 100vh;
-      margin: 0;
-      text-align: center;
-      padding: 30px 20px;
+      min-height: 620px;
     }
-    .title {
-      font-size: 30px;
-      font-weight: 900;
-      letter-spacing: 2px;
-      background: linear-gradient(90deg, #22d3ee, #a855f7, #ec4899);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-      margin-bottom: 8px;
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, rgba(124, 58, 237, 0.12), transparent 36%, rgba(34, 211, 238, 0.12));
+      pointer-events: none;
     }
-    .subtitle {
-      color: #8b9bbd;
-      font-size: 13px;
-      margin-bottom: 26px;
+
+    .hero-content {
+      position: relative;
+      z-index: 1;
     }
-    .brand {
-      color: #67e8f9;
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(124, 58, 237, 0.15);
+      border: 1px solid rgba(124, 58, 237, 0.4);
+      color: #d8c6ff;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
       font-weight: 700;
-      letter-spacing: 2px;
-      margin-bottom: 20px;
     }
-    .card {
-      width: 100%;
-      max-width: 340px;
-      padding: 2px;
-      border-radius: 20px;
-      background: linear-gradient(135deg, #22d3ee, #a855f7, #ec4899, #22d3ee);
+
+    h1 {
+      margin: 18px 0 10px;
+      font-size: clamp(2.4rem, 5vw, 4.1rem);
+      line-height: 0.96;
+      letter-spacing: -0.06em;
+      font-weight: 900;
     }
-    .card-inner {
-      background: #0a0b12;
-      border-radius: 18px;
-      padding: 28px 22px;
+
+    .gradient-text {
+      background: linear-gradient(90deg, #a78bfa, #67e8f9, #f9a8d4);
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
     }
-    .logo {
-      font-size: 13px;
-      letter-spacing: 3px;
-      color: #67e8f9;
-      font-weight: bold;
-      margin-bottom: 18px;
+
+    .lead {
+      max-width: 600px;
+      color: var(--muted);
+      font-size: 1.06rem;
+      line-height: 1.7;
+      margin: 0 0 30px;
     }
-    label {
+
+    .info-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 12px;
+    }
+
+    .stat {
+      min-width: 140px;
+      border: 1px solid var(--panel-border);
+      background: rgba(15, 23, 42, 0.45);
+      border-radius: 16px;
+      padding: 12px 14px;
+    }
+
+    .stat b {
       display: block;
-      text-align: left;
-      font-size: 13px;
-      color: #9cb3d9;
-      margin-bottom: 8px;
+      font-size: 1.2rem;
+      margin-bottom: 3px;
     }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .panel {
+      position: relative;
+      border: 1px solid var(--panel-border);
+      border-radius: 28px;
+      background: var(--panel);
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow);
+      padding: 28px 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .brand-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      gap: 12px;
+    }
+
+    .brand-name {
+      font-size: 0.82rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #d9f7ff;
+      font-weight: 800;
+    }
+
+    .brand-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary-2), var(--accent));
+      box-shadow: 0 0 18px rgba(34, 211, 238, 0.7);
+    }
+
+    .slots-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(52, 211, 153, 0.08);
+      border: 1px solid rgba(52, 211, 153, 0.25);
+      color: #baf7dc;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      width: fit-content;
+    }
+
+    .slots-pill::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 12px rgba(52, 211, 153, 0.9);
+    }
+
+    .field-label {
+      color: var(--muted);
+      font-size: 0.82rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      display: block;
+    }
+
     .input-wrap {
       display: flex;
       align-items: center;
-      background: #05060a;
-      border: 1px solid #22304d;
-      border-radius: 10px;
-      padding: 12px 14px;
-      margin-bottom: 6px;
+      gap: 10px;
+      background: rgba(5, 12, 20, 0.72);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      border-radius: 16px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
     }
-    .input-wrap span { margin-right: 8px; opacity: 0.7; }
+
+    .input-wrap:focus-within {
+      border-color: rgba(147, 197, 253, 0.7);
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.18);
+      transform: translateY(-1px);
+    }
+
+    .input-wrap span {
+      font-size: 1.2rem;
+      opacity: 0.9;
+    }
+
     input {
       flex: 1;
-      background: transparent;
       border: none;
       outline: none;
-      color: #e6f1ff;
-      font-size: 15px;
+      background: transparent;
+      color: var(--text);
+      font-size: 1.02rem;
+      letter-spacing: 0.02em;
     }
+
+    input::placeholder {
+      color: rgba(159, 180, 210, 0.7);
+    }
+
     .hint {
-      font-size: 11px;
-      color: #5c6b8a;
-      text-align: left;
-      margin-bottom: 20px;
+      color: var(--muted);
+      font-size: 0.76rem;
+      margin: 0 0 20px;
+      min-height: 18px;
     }
-    .btn-primary {
-      width: 100%;
-      padding: 14px;
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .btn {
+      appearance: none;
       border: none;
-      border-radius: 10px;
-      background: linear-gradient(90deg, #a855f7, #ec4899);
-      color: white;
-      font-weight: bold;
-      font-size: 14px;
-      letter-spacing: 1px;
+      border-radius: 16px;
+      padding: 15px 18px;
+      font-size: 0.96rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
       cursor: pointer;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
     }
-    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn:hover { transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .primary {
+      background: linear-gradient(90deg, var(--primary), #d946ef, var(--accent));
+      color: #fff;
+      box-shadow: 0 18px 35px rgba(168, 85, 247, 0.35);
+    }
+
+    .secondary {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      color: var(--text);
+    }
+
     .divider {
       display: flex;
       align-items: center;
-      color: #5c6b8a;
-      font-size: 12px;
-      margin: 18px 0;
+      gap: 12px;
+      margin: 12px 0 4px;
+      color: rgba(159, 180, 210, 0.8);
+      font-size: 0.72rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
     }
-    .divider::before, .divider::after {
+
+    .divider::before,
+    .divider::after {
       content: "";
-      flex: 1;
       height: 1px;
-      background: #22304d;
+      flex: 1;
+      background: rgba(148, 163, 184, 0.2);
     }
-    .divider span { padding: 0 12px; }
-    .btn-secondary {
-      width: 100%;
-      padding: 13px;
-      border-radius: 10px;
-      border: 1px solid #22304d;
-      background: transparent;
-      color: #9cb3d9;
-      font-size: 14px;
-      cursor: pointer;
-    }
+
     #codeResult {
-      margin-top: 18px;
+      min-height: 58px;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 10px;
+      margin-top: 16px;
+      padding: 0 2px;
     }
+
     #codeText {
-      font-size: 22px;
-      letter-spacing: 3px;
-      color: #67e8f9;
-      font-weight: bold;
+      font-size: clamp(1.5rem, 3vw, 2.2rem);
+      font-weight: 900;
+      letter-spacing: 0.18em;
+      color: #a5f3fc;
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      word-break: break-all;
     }
+
     #copyBtn {
-      background: #15192b;
-      border: 1px solid #22304d;
-      border-radius: 8px;
-      width: 34px;
-      height: 34px;
-      font-size: 16px;
-      color: #9cb3d9;
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: rgba(15, 23, 42, 0.8);
+      color: var(--text);
       cursor: pointer;
       display: none;
+      font-size: 1rem;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
     }
-    #copyBtn:active { transform: scale(0.95); }
-    #qrWrap { display: none; margin-top: 18px; }
-    img#qrImg {
-      width: 220px;
-      height: 220px;
-      background: white;
-      padding: 10px;
-      border-radius: 12px;
+
+    #qrWrap {
+      display: none;
+      margin-top: 18px;
+      padding: 16px;
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: inset 0 0 0 1px rgba(17, 24, 39, 0.04), 0 18px 40px rgba(15, 23, 42, 0.18);
+      width: fit-content;
+      margin-left: auto;
+      margin-right: auto;
     }
+
+    #qrImg {
+      display: block;
+      width: min(100%, 230px);
+      height: min(100%, 230px);
+      border-radius: 18px;
+      background: #fff;
+    }
+
     #linkedBanner {
       display: none;
       margin-top: 18px;
       padding: 14px 16px;
-      background: #0a1f1a;
-      color: #6ee7b7;
-      border: 1px solid #10b981;
-      border-radius: 10px;
-      font-weight: bold;
-      font-size: 14px;
+      border-radius: 14px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.45);
+      color: #bcf7d8;
+      font-weight: 700;
+      font-size: 0.97rem;
+      text-align: center;
     }
+
     .status {
+      min-height: 22px;
       margin-top: 14px;
-      font-size: 12px;
-      color: #5c6b8a;
+      color: var(--muted);
+      font-size: 0.8rem;
+      text-align: center;
+    }
+
+    @media (max-width: 860px) {
+      .page-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .hero {
+        min-height: unset;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="title">ADEZ MD</div>
-  <div class="subtitle">WhatsApp Bot Session Portal</div>
-  <div class="brand">POWERED BY ADEZ TECH</div>
-  <div class="subtitle" id="slotsLine" style="margin-top: -22px; margin-bottom: 24px;"></div>
+  <div class="page-shell">
+    <section class="hero">
+      <div class="hero-content">
+        <div class="badge">ADEZ TECH • WhatsApp</div>
+        <h1><span class="gradient-text">Pair your bot</span><br />in seconds</h1>
+        <p class="lead">
+          Connect your WhatsApp account securely using a pairing code or QR scan. The bot keeps your session active and ready to respond to incoming messages.
+        </p>
 
-  <div class="card">
-    <div class="card-inner">
-      <div class="logo">⚡ ADEZ TECH</div>
-
-      <label>WhatsApp Number</label>
-      <div class="input-wrap">
-        <span>📞</span>
-        <input id="numberInput" type="text" placeholder="e.g. 254111783552" />
+        <div class="info-row">
+          <div class="stat">
+            <b id="heroUsed">0</b>
+            <span>Linked</span>
+          </div>
+          <div class="stat">
+            <b id="heroMax">0</b>
+            <span>Slots</span>
+          </div>
+          <div class="stat">
+            <b>24/7</b>
+            <span>Online</span>
+          </div>
+        </div>
       </div>
-      <div class="hint">Country code without '+' (e.g. 254xxxxxxxxx)</div>
+    </section>
 
-      <button class="btn-primary" onclick="requestCode()">GET PAIR CODE</button>
+    <aside class="panel">
+      <div class="brand-row">
+        <div class="brand-name">ADEZ MD</div>
+        <div class="brand-dot" aria-label="online status"></div>
+      </div>
 
-      <div class="divider"><span>OR</span></div>
+      <div id="slotsLine" class="slots-pill">0/0 slots linked</div>
 
-      <button class="btn-secondary" onclick="showQR()">▦ Scan QR Code Instead</button>
+      <label class="field-label" for="numberInput">WhatsApp Number</label>
+      <div class="input-wrap">
+        <span>📱</span>
+        <input id="numberInput" type="text" placeholder="254111783552" autocomplete="off" />
+      </div>
+      <div class="hint">Use country code without the leading + sign.</div>
+
+      <div class="stack">
+        <button class="btn primary" onclick="requestCode()">Get Pair Code</button>
+
+        <div class="divider">or</div>
+
+        <button class="btn secondary" onclick="showQR()">Scan QR Code</button>
+      </div>
 
       <div id="codeResult">
         <span id="codeText"></span>
@@ -214,13 +461,14 @@
       </div>
 
       <div id="linkedBanner">✅ Linked successfully! You can close this page.</div>
-      <div class="status" id="statusLine"></div>
-    </div>
+      <div id="statusLine" class="status"></div>
+    </aside>
   </div>
 
   <script>
     let currentPhone = null;
     let pollTimer = null;
+    let lastCode = '';
 
     function getPhone() {
       return document.getElementById('numberInput').value.trim().replace(/[^0-9]/g, '');
@@ -230,10 +478,15 @@
       try {
         const res = await fetch('/slots');
         const data = await res.json();
-        document.getElementById('slotsLine').textContent = `${data.used}/${data.max} slots linked`;
-      } catch (err) {}
+        const used = Number(data.used || 0);
+        const max = Number(data.max || 0);
+        document.getElementById('slotsLine').textContent = `${used}/${max} slots linked`;
+        document.getElementById('heroUsed').textContent = used;
+        document.getElementById('heroMax').textContent = max;
+      } catch (err) {
+        console.warn('Unable to load slots:', err);
+      }
     }
-    loadSlots();
 
     function startPolling(phone) {
       if (pollTimer) clearInterval(pollTimer);
@@ -262,15 +515,22 @@
             img.src = '/qr?phone=' + encodeURIComponent(currentPhone) + '&t=' + Date.now();
           }
         }
-      } catch (err) {}
+      } catch (err) {
+        console.warn('Status check failed:', err);
+      }
     }
 
     async function showQR() {
       const phone = getPhone();
-      if (!phone) { alert('Enter your phone number first.'); return; }
+      if (!phone) {
+        alert('Enter your phone number first.');
+        return;
+      }
 
       document.getElementById('linkedBanner').style.display = 'none';
       document.getElementById('qrWrap').style.display = 'block';
+      document.getElementById('codeText').textContent = '';
+      document.getElementById('copyBtn').style.display = 'none';
 
       const startRes = await fetch('/start-session?phone=' + encodeURIComponent(phone));
       if (startRes.status === 403) {
@@ -284,11 +544,12 @@
       startPolling(phone);
     }
 
-    let lastCode = '';
-
     async function requestCode() {
       const phone = getPhone();
-      if (!phone) { alert('Enter your phone number first.'); return; }
+      if (!phone) {
+        alert('Enter your phone number first.');
+        return;
+      }
 
       const codeText = document.getElementById('codeText');
       const copyBtn = document.getElementById('copyBtn');
@@ -300,6 +561,7 @@
       try {
         const res = await fetch('/request-code?phone=' + encodeURIComponent(phone));
         const data = await res.json();
+
         if (data.code) {
           lastCode = data.code;
           codeText.textContent = data.code;
@@ -331,6 +593,8 @@
         setTimeout(() => { copyBtn.textContent = '📋'; }, 1500);
       }
     }
+
+    loadSlots();
   </script>
 </body>
 </html>

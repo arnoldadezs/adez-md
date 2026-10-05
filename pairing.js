@@ -193,9 +193,6 @@ class PairingManager {
       let auth = await useSupabaseAuthState(phone);
 
       // Smart creds reset logic:
-      // - Don't nuke on first try
-      // - Only nuke if we've retried and creds still incomplete
-      // - Or if it's truly a logged-out/bad-session disconnect
       if (!this.hasValidCreds(auth.state.creds)) {
         if (
           entry.retryCount >= this.AUTH_RESET_AFTER_RETRIES ||
@@ -219,7 +216,6 @@ class PairingManager {
 
       const { state, saveCreds, clearSession } = auth;
 
-      // Get latest WhatsApp version
       let version = this.KNOWN_GOOD_WA_VERSION;
       try {
         const fetched = await fetchLatestBaileysVersion();
@@ -233,7 +229,6 @@ class PairingManager {
         );
       }
 
-      // Create socket
       const s = makeWASocket({
         auth: state,
         version,
@@ -249,9 +244,6 @@ class PairingManager {
       entry.status = "pairing";
       entry.pairingReady = false;
 
-      // ========== EVENT HANDLERS ==========
-
-      // Handle credential updates
       s.ev.on("creds.update", async () => {
         try {
           console.log(`[${phone}] 💾 Saving credentials...`);
@@ -264,15 +256,13 @@ class PairingManager {
         }
       });
 
-      // Handle connection changes
       s.ev.on("connection.update", async (update) => {
-        // Ignore events from old sockets
         if (entry.sock !== s) {
           console.log(`[${phone}] ⏭️ Ignoring event from old socket`);
           return;
         }
 
-        const { connection, lastDisconnect, qr, isNewLogin } = update;
+        const { connection, lastDisconnect, qr } = update;
 
         if (qr) {
           entry.latestQR = qr;
@@ -299,18 +289,13 @@ class PairingManager {
           this.onStatusChange(phone, "connected");
           this.onConnected(phone);
 
-          // Update DB
           try {
             await upsertSession(phone, "connected");
           } catch (e) {}
 
-          // Alert owner once
           if (!entry.hasAlertedOwner) {
             entry.hasAlertedOwner = true;
-            setTimeout(
-              () => this._sendWelcomeMessage(s, phone),
-              1000
-            );
+            setTimeout(() => this._sendWelcomeMessage(s, phone), 1000);
           }
         }
 
@@ -318,30 +303,32 @@ class PairingManager {
           entry.pairingReady = false;
           entry.lastUpdate = new Date();
 
-          const statusCode =
-            new Boom(lastDisconnect?.error)?.output?.statusCode ?? 0;
+          const err = lastDisconnect?.error;
+          const httpStatus = new Boom(err)?.output?.statusCode ?? 0;
+          const baileyReason =
+            err?.output?.statusCode ??
+            err?.statusCode ??
+            (typeof err?.message === "string" && /bad session/i.test(err.message)
+              ? DisconnectReason.badSession
+              : 0);
+
           console.log(
-            `[${phone}] ⚠️ Connection closed (reason: ${statusCode})`
+            `[${phone}] ⚠️ Connection closed (http=${httpStatus}, baileysReason=${baileyReason})`
           );
 
-          // Wait for last save to complete
           if (entry.lastSavePromise) {
             try {
               await entry.lastSavePromise;
               console.log(`[${phone}] ✅ Last save confirmed before handling disconnect`);
             } catch (e) {
-              console.warn(
-                `[${phone}] ⚠️ Last save was rejected:`,
-                e.message
-              );
+              console.warn(`[${phone}] ⚠️ Last save was rejected:`, e.message);
             }
           }
 
-          this._handleDisconnect(phone, lastDisconnect?.error, clearSession);
+          this._handleDisconnect(phone, baileyReason, clearSession);
         }
       });
 
-      // Handle incoming messages
       s.ev.on("messages.upsert", async ({ messages, type }) => {
         if (type !== "notify" || entry.sock !== s) return;
 
@@ -367,7 +354,6 @@ class PairingManager {
       entry.status = "error";
       this.onStatusChange(phone, "error");
 
-      // Retry after delay
       const delay = Math.min(2000 * (entry.retryCount + 1), 30000);
       this.scheduleRestart(phone, delay);
     }
@@ -375,29 +361,22 @@ class PairingManager {
 
   /**
    * Handle disconnect logic
-   * 
-   * CRITICAL FIX: Only reset on truly bad sessions
-   * Pass the raw error object from Baileys, not the HTTP status code
+   * Only true bad sessions should wipe auth.
+   * 408/500/515/restartRequired are temporary transport errors and should retry.
    */
-  async _handleDisconnect(phone, error, clearSession) {
+  async _handleDisconnect(phone, reason, clearSession) {
     const entry = this.getEntry(phone);
     entry.status = "disconnected";
     this.onStatusChange(phone, "disconnected");
     this.onDisconnected(phone);
 
-    // Check the actual Baileys disconnect reason enum
-    const reason = error?.output?.statusCode ?? 0;
-    console.log(`[${phone}] Disconnect reason enum: ${reason}, DisconnectReason.loggedOut=${DisconnectReason.loggedOut}, DisconnectReason.badSession=${DisconnectReason.badSession}`);
-
-    // ONLY these codes should trigger a hard session reset
-    // These are TRUE auth failures, not transient network issues
     const shouldResetSession =
       reason === DisconnectReason.loggedOut ||
       reason === DisconnectReason.badSession;
 
     if (shouldResetSession) {
       console.log(
-        `[${phone}] 🧹 Session must be reset (logged out or bad session)`
+        `[${phone}] 🧹 Session must be reset (reason: ${reason})`
       );
       entry.retryCount = 0;
       entry.hasAlertedOwner = false;
@@ -411,13 +390,11 @@ class PairingManager {
         this.logError(phone, e);
       }
 
-      // Remove from map so fresh entry is created
       this.sessions.delete(phone);
       this.scheduleRestartOnFreshEntry(phone, 3000);
       return;
     }
 
-    // Temporary disconnect (408, 500, 515, restartRequired, etc.): retry with backoff
     entry.retryCount++;
     const delay =
       entry.retryCount > this.MAX_AUTO_RETRIES
@@ -435,9 +412,6 @@ class PairingManager {
     this.scheduleRestart(phone, delay);
   }
 
-  /**
-   * Schedule restart with fresh entry
-   */
   scheduleRestartOnFreshEntry(phone, delay) {
     setTimeout(() => {
       this.startBot(phone).catch((err) =>
@@ -446,9 +420,6 @@ class PairingManager {
     }, delay);
   }
 
-  /**
-   * Send welcome message when connected
-   */
   async _sendWelcomeMessage(sock, phone) {
     try {
       const ownerJid = `${phone}@s.whatsapp.net`;
@@ -470,9 +441,6 @@ class PairingManager {
     }
   }
 
-  /**
-   * Request pairing code
-   */
   async requestPairingCode(phone) {
     phone = this.normalizeNumber(phone);
 
@@ -482,12 +450,10 @@ class PairingManager {
 
     const entry = this.getEntry(phone);
 
-    // Start bot if not running
     if (!entry.sock) {
       await this.startBot(phone);
     }
 
-    // Wait for bot to be ready
     let attempts = 0;
     while (!entry.pairingReady && attempts < 30) {
       await new Promise((r) => setTimeout(r, 500));
@@ -502,7 +468,6 @@ class PairingManager {
       throw new Error("Already connected. No pairing needed.");
     }
 
-    // Generate pairing code
     console.log(`[${phone}] 📝 Generating pairing code...`);
     const code = await entry.sock.requestPairingCode(phone);
     console.log(`[${phone}] ✅ Pairing code generated: ${code}`);
@@ -510,9 +475,6 @@ class PairingManager {
     return code;
   }
 
-  /**
-   * Stop a session
-   */
   async stopSession(phone) {
     phone = this.normalizeNumber(phone);
     const entry = this.sessions.get(phone);
@@ -534,9 +496,6 @@ class PairingManager {
     console.log(`[${phone}] ✅ Session stopped`);
   }
 
-  /**
-   * Resume previously saved sessions
-   */
   async resumeSessions(phones) {
     console.log(`⏳ Resuming ${phones.length} session(s)...`);
     for (const phone of phones) {
@@ -546,9 +505,6 @@ class PairingManager {
     }
   }
 
-  /**
-   * Shutdown all sessions gracefully
-   */
   async shutdown() {
     console.log(`🛑 Shutting down all ${this.sessions.size} session(s)...`);
     const phones = Array.from(this.sessions.keys());

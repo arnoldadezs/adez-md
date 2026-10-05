@@ -22,13 +22,11 @@ const TOTAL_COMMANDS = 61;
 const DEVELOPER = "Arnold Adez";
 const DEVELOPER_CONTACT = "+254111783552";
 const PORT = process.env.PORT || 3000;
-const MAX_SESSIONS = Infinity; // unlimited slots: anyone can connect
-
+const MAX_SESSIONS = Infinity;
 const KNOWN_GOOD_WA_VERSION = [2, 3000, 1044015310];
 const MAX_AUTO_RETRIES = 5;
+const AUTH_RESET_AFTER_RETRIES = 2;
 
-// One entry per linked phone number. Each entry mirrors the fields the
-// single-session version used to keep as globals.
 const sessions = new Map();
 
 process.on("unhandledRejection", (e) => console.error("Unhandled rejection:", e));
@@ -38,8 +36,6 @@ function normalizeNumber(raw) {
   return (raw || "").replace(/[^0-9]/g, "");
 }
 
-// A real international number (country code + subscriber number) is never
-// shorter than this. Blocks garbage like "54" from creating a session.
 function isValidPhone(phone) {
   return phone.length >= 9;
 }
@@ -56,16 +52,22 @@ function getEntry(phone) {
       starting: false,
       pairingReady: false,
       retryTimer: null,
+      lastSavePromise: null,
     };
     sessions.set(phone, entry);
   }
   return entry;
 }
 
-// Baileys needs all of these. If any is missing, requestPairingCode crashes
-// with "Cannot read properties of undefined (reading 'public')".
+// Baileys creds are valid only when all required keys exist
 function hasValidCreds(c) {
-  return !!(c && c.noiseKey && c.signedIdentityKey && c.pairingEphemeralKeyPair && c.advSecretKey);
+  return !!(
+    c &&
+    c.noiseKey &&
+    c.signedIdentityKey &&
+    c.pairingEphemeralKeyPair &&
+    c.advSecretKey
+  );
 }
 
 function scheduleRestart(phone, delay) {
@@ -75,13 +77,11 @@ function scheduleRestart(phone, delay) {
 }
 
 function slotsFull(phone) {
-  // With MAX_SESSIONS = Infinity this will always allow new slots
   return !sessions.has(phone) && sessions.size >= MAX_SESSIONS;
 }
 
 const app = express();
 
-// Allows the pairing page to be hosted elsewhere (e.g. Vercel) and still call this API.
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Methods", "GET");
@@ -121,8 +121,6 @@ app.get("/status", (req, res) => {
   res.json({ status: entry?.status || "not_started" });
 });
 
-// Starts a session WITHOUT requesting a pairing code — used by the QR flow.
-// (Requesting a pairing code suppresses the QR event, so the two must stay separate.)
 app.get("/start-session", async (req, res) => {
   const phone = normalizeNumber(req.query.phone);
   if (!phone || !isValidPhone(phone)) {
@@ -205,13 +203,14 @@ async function resumeAllSessions() {
 
 async function startBot(phone) {
   const entry = getEntry(phone);
+
   if (entry.starting) return;
   entry.starting = true;
   entry.pairingReady = false;
+
   console.log(`[${phone}] 🤖 Starting WhatsApp bot...`);
 
   try {
-    // Kill the old socket first so sockets never stack up
     if (entry.sock) {
       try {
         entry.sock.ev.removeAllListeners();
@@ -222,15 +221,20 @@ async function startBot(phone) {
 
     let auth = await useSupabaseAuthState(phone);
 
+    // Don't wipe a fresh session immediately. A partial/empty creds object can happen
+    // during startup or while retrying a temporary disconnect.
     if (!hasValidCreds(auth.state.creds)) {
-      console.log(`[${phone}] 🧹 Saved session is incomplete or corrupt, resetting it...`);
-      await auth.clearSession();
-      await removeSession(phone);
-      auth = await useSupabaseAuthState(phone);
-      if (!hasValidCreds(auth.state.creds)) {
-        Object.assign(auth.state.creds, initAuthCreds());
-        await auth.saveCreds();
+      if (entry.retryCount >= AUTH_RESET_AFTER_RETRIES) {
+        console.log(`[${phone}] 🧹 Saved session is incomplete or corrupt, resetting it...`);
+        await auth.clearSession();
+        await removeSession(phone);
+        auth = await useSupabaseAuthState(phone);
       }
+    }
+
+    if (!hasValidCreds(auth.state.creds)) {
+      Object.assign(auth.state.creds, initAuthCreds());
+      await auth.saveCreds();
     }
 
     const { state, saveCreds, clearSession } = auth;
@@ -250,14 +254,23 @@ async function startBot(phone) {
       logger: pino({ level: "silent" }),
       printQRInTerminal: false,
     });
+
     entry.sock = s;
 
-    s.ev.on("creds.update", () => {
-      entry.lastSavePromise = saveCreds();
+    s.ev.on("creds.update", async () => {
+      try {
+        console.log(`[${phone}] 💾 Saving auth creds...`);
+        entry.lastSavePromise = saveCreds();
+        await entry.lastSavePromise;
+        console.log(`[${phone}] ✅ Auth creds saved`);
+      } catch (err) {
+        console.error(`[${phone}] ❌ Failed to save auth creds:`, err.message);
+      }
     });
 
     s.ev.on("connection.update", async (update) => {
-      if (entry.sock !== s) return; // ignore events from an old socket
+      if (entry.sock !== s) return;
+
       const { connection, lastDisconnect, qr } = update;
 
       if (qr) {
@@ -269,37 +282,41 @@ async function startBot(phone) {
 
       if (connection === "close") {
         entry.pairingReady = false;
-        const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode;
+        const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode ?? 0;
         console.log(`[${phone}] ⚠️ Connection closed (reason ${statusCode})`);
         entry.status = "disconnected";
 
-        // A close almost always follows a creds.update (e.g. right after
-        // pairing succeeds, WA sends restartRequired/515). Make sure that
-        // save has actually landed in Supabase before we reconnect or
-        // decide the session looks corrupt — otherwise we race ourselves.
         if (entry.lastSavePromise) {
           try {
             await entry.lastSavePromise;
-          } catch (e) {}
+          } catch (e) {
+            console.warn(`[${phone}] lastSavePromise was rejected:`, e.message);
+          }
         }
 
         if (statusCode === DisconnectReason.connectionReplaced) {
           console.log(`[${phone}] ⚠️ Another instance is using this session. Stop the bot on every other host!`);
         }
 
-        // Logged out or corrupt session: wipe it and start fresh so you can pair again
-        if (statusCode === DisconnectReason.loggedOut || statusCode === DisconnectReason.badSession) {
+        const shouldResetSession =
+          statusCode === DisconnectReason.loggedOut ||
+          statusCode === DisconnectReason.badSession ||
+          (statusCode === 500 && entry.retryCount >= AUTH_RESET_AFTER_RETRIES);
+
+        if (shouldResetSession) {
           console.log(`[${phone}] 🧹 Session invalid. Clearing it, you will need to pair again.`);
           entry.retryCount = 0;
           entry.hasAlertedOwner = false;
           entry.latestQR = null;
+
           try {
             await clearSession();
             await removeSession(phone);
           } catch (e) {
             console.error(`[${phone}] Failed to clear session:`, e.message);
           }
-          sessions.delete(phone); // free the slot so someone else (or this number again) can link
+
+          sessions.delete(phone);
           scheduleRestartOnFreshEntry(phone, 2000);
           return;
         }
@@ -309,16 +326,22 @@ async function startBot(phone) {
           await upsertSession(phone, "disconnected");
         } catch (e) {}
 
-        const delay = entry.retryCount > MAX_AUTO_RETRIES ? 60000 : Math.min(2000 * entry.retryCount, 20000);
+        const delay =
+          entry.retryCount > MAX_AUTO_RETRIES
+            ? 60000
+            : Math.min(2000 * entry.retryCount, 20000);
+
         console.log(`[${phone}] ⏳ Retrying in ${Math.round(delay / 1000)}s (attempt ${entry.retryCount})...`);
         scheduleRestart(phone, delay);
       } else if (connection === "open") {
         entry.retryCount = 0;
         entry.latestQR = null;
         entry.status = "connected";
+
         try {
           await upsertSession(phone, "connected");
         } catch (e) {}
+
         console.log(`[${phone}] ${BOT_NAME} is connected and online! ✅`);
 
         if (!entry.hasAlertedOwner) {
@@ -344,7 +367,6 @@ async function startBot(phone) {
       if (type !== "notify") return;
       if (entry.sock !== s) return;
 
-      // handle every message in the batch, not just the first
       for (const msg of messages) {
         if (!msg.message || msg.key.remoteJid === "status@broadcast") continue;
         try {
@@ -363,9 +385,7 @@ async function startBot(phone) {
   }
 }
 
-// After a logged-out session is deleted from the map, scheduleRestart's normal
-// getEntry() would silently create a brand-new entry anyway — this just makes
-// that explicit and keeps the same delayed-restart behavior.
+// Explicit delayed restart after session reset
 function scheduleRestartOnFreshEntry(phone, delay) {
   setTimeout(() => startBot(phone), delay);
-                        }
+}

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ADEZ MD - Session Portal</title>
+  <title>ADEZ MD - Powered by ADEZ TECH</title>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -20,23 +20,29 @@
       padding: 30px 20px;
     }
     .title {
-      font-size: 28px;
-      font-weight: 800;
+      font-size: 30px;
+      font-weight: 900;
       letter-spacing: 2px;
       background: linear-gradient(90deg, #22d3ee, #a855f7, #ec4899);
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;
-      margin-bottom: 6px;
+      margin-bottom: 8px;
     }
     .subtitle {
       color: #8b9bbd;
       font-size: 13px;
-      margin-bottom: 30px;
+      margin-bottom: 26px;
+    }
+    .brand {
+      color: #67e8f9;
+      font-weight: 700;
+      letter-spacing: 2px;
+      margin-bottom: 20px;
     }
     .card {
       width: 100%;
-      max-width: 320px;
+      max-width: 340px;
       padding: 2px;
       border-radius: 20px;
       background: linear-gradient(135deg, #22d3ee, #a855f7, #ec4899, #22d3ee);
@@ -51,7 +57,7 @@
       letter-spacing: 3px;
       color: #67e8f9;
       font-weight: bold;
-      margin-bottom: 20px;
+      margin-bottom: 18px;
     }
     label {
       display: block;
@@ -178,6 +184,7 @@
 <body>
   <div class="title">ADEZ MD</div>
   <div class="subtitle">WhatsApp Bot Session Portal</div>
+  <div class="brand">POWERED BY ADEZ TECH</div>
   <div class="subtitle" id="slotsLine" style="margin-top: -22px; margin-bottom: 24px;"></div>
 
   <div class="card">
@@ -189,7 +196,7 @@
         <span>📞</span>
         <input id="numberInput" type="text" placeholder="e.g. 254111783552" />
       </div>
-      <div class="hint">Country code without '+' (e.g. 254xxxxxxxxx) — limited to the first 10 numbers to link</div>
+      <div class="hint">Country code without '+' (e.g. 254xxxxxxxxx)</div>
 
       <button class="btn-primary" onclick="requestCode()">GET PAIR CODE</button>
 
@@ -224,9 +231,7 @@
         const res = await fetch('/slots');
         const data = await res.json();
         document.getElementById('slotsLine').textContent = `${data.used}/${data.max} slots linked`;
-      } catch (err) {
-        // ignore
-      }
+      } catch (err) {}
     }
     loadSlots();
 
@@ -251,15 +256,13 @@
           clearInterval(pollTimer);
           loadSlots();
         } else if (data.status === 'pairing') {
-          statusLine.textContent = 'Waiting for you to scan/enter the code on your phone...';
+          statusLine.textContent = 'Waiting for your phone to scan or accept the code...';
           const img = document.getElementById('qrImg');
           if (document.getElementById('qrWrap').style.display !== 'none') {
             img.src = '/qr?phone=' + encodeURIComponent(currentPhone) + '&t=' + Date.now();
           }
         }
-      } catch (err) {
-        // ignore transient errors, keep polling
-      }
+      } catch (err) {}
     }
 
     async function showQR() {
@@ -318,7 +321,6 @@
         copyBtn.textContent = '✅';
         setTimeout(() => { copyBtn.textContent = '📋'; }, 1500);
       } catch (err) {
-        // Fallback for browsers without clipboard API access
         const temp = document.createElement('textarea');
         temp.value = lastCode;
         document.body.appendChild(temp);

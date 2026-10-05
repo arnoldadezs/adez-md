@@ -1,0 +1,31 @@
+{
+  "name": "ADEZ MD",
+  "description": "ADEZ MD - a WhatsApp bot built with Baileys, powered by ADEZ TECH",
+  "repository": "https://github.com/adeztech2/adez-md",
+  "keywords": ["whatsapp", "bot", "baileys", "adez-md"],
+  "env": {
+    "SUPABASE_URL": {
+      "description": "Your Supabase project URL (from Project Settings > API)",
+      "required": true
+    },
+    "SUPABASE_KEY": {
+      "description": "Your Supabase service role key (from Project Settings > API)",
+      "required": true
+    },
+    "ANTHROPIC_API_KEY": {
+      "description": "Your Anthropic API key, needed for the .ai / .gpt commands. Leave blank to skip those.",
+      "required": false
+    }
+  },
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ],
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  }
+}

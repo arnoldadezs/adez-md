@@ -375,6 +375,15 @@ class PairingManager {
 
   /**
    * Handle disconnect logic
+   * 
+   * CRITICAL FIX: Only reset on truly bad sessions
+   * - loggedOut (403/401) = user manually logged out
+   * - badSession (401) = device auth was revoked
+   * 
+   * DO NOT reset on temporary issues:
+   * - 408 Request timeout = network hiccup, retry
+   * - 500 Internal server error = temporary server issue, retry
+   * - 515 restartRequired = WhatsApp service restarting normally, retry
    */
   async _handleDisconnect(phone, statusCode, clearSession) {
     const entry = this.getEntry(phone);
@@ -382,15 +391,14 @@ class PairingManager {
     this.onStatusChange(phone, "disconnected");
     this.onDisconnected(phone);
 
-    // Special cases: must reset session
+    // ONLY these codes should trigger a hard session reset
     const shouldResetSession =
       statusCode === DisconnectReason.loggedOut ||
-      statusCode === DisconnectReason.badSession ||
-      statusCode === DisconnectReason.restartRequired;
+      statusCode === DisconnectReason.badSession;
 
     if (shouldResetSession) {
       console.log(
-        `[${phone}] 🧹 Disconnect reason ${statusCode} requires session reset`
+        `[${phone}] 🧹 Session must be reset (reason: ${statusCode})`
       );
       entry.retryCount = 0;
       entry.hasAlertedOwner = false;
@@ -410,7 +418,7 @@ class PairingManager {
       return;
     }
 
-    // Temporary disconnect: retry with backoff
+    // Temporary disconnect (408, 500, 515, etc.): retry with backoff
     entry.retryCount++;
     const delay =
       entry.retryCount > this.MAX_AUTO_RETRIES

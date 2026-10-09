@@ -30,8 +30,16 @@ const DEPLOY_DIR = path.join(__dirname, "deployed_sessions");
 fs.mkdirSync(TEMP_DIR, { recursive: true });
 fs.mkdirSync(DEPLOY_DIR, { recursive: true });
 
-const pairRequests = new Map(); // requestId -> { status, code?, sessionId?, error? }
+const pairRequests = new Map(); // requestId -> { status, code?, sessionId?, error?, lastDisconnect?, startedAt? }
 const runningBots = new Map(); // id -> { sock, status }
+
+function safeJson(value) {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch (err) {
+    return String(value);
+  }
+}
 
 // ───────── Pairing ─────────
 
@@ -45,7 +53,7 @@ app.post("/api/pair", async (req, res) => {
   const sessionDir = path.join(TEMP_DIR, requestId);
   fs.mkdirSync(sessionDir, { recursive: true });
 
-  const entry = { status: "connecting" };
+  const entry = { status: "connecting", startedAt: Date.now() };
   pairRequests.set(requestId, entry);
 
   try {
@@ -57,24 +65,27 @@ app.post("/api/pair", async (req, res) => {
       auth: state,
       logger: pino({ level: "silent" }),
       printQRInTerminal: false,
-      // WhatsApp's pairing-code flow is picky — it needs a browser identity it
-      // recognizes. A made-up name here (e.g. the bot's own name) causes codes
-      // that look valid but never finish linking. Browsers.ubuntu() is a
-      // known-good identity built into Baileys for exactly this.
       browser: Browsers.ubuntu("Chrome"),
     });
 
     sock.ev.on("creds.update", saveCreds);
 
     sock.ev.on("connection.update", async (update) => {
+      const statusCode = update.lastDisconnect?.error?.output?.statusCode;
+      const reason = update.lastDisconnect?.error?.message;
+
       if (update.connection === "close") {
-        const statusCode = update.lastDisconnect?.error?.output?.statusCode;
-        const reason = update.lastDisconnect?.error?.message;
+        entry.lastDisconnect = update.lastDisconnect;
         entry.status = entry.status === "ready" ? entry.status : "error";
+
         if (entry.status === "error") {
           entry.error = `Connection closed before linking finished (code ${statusCode || "?"}).`;
         }
-        console.log(`[PAIR] Connection closed for ${requestId}. code=${statusCode} reason=${reason}`);
+
+        console.log(
+          `[PAIR] Connection closed for ${requestId}. code=${statusCode} reason=${reason}`
+        );
+        console.log(`[PAIR] Disconnect payload for ${requestId}: ${safeJson(update)}`);
       }
 
       if (update.connection === "open") {
@@ -82,6 +93,7 @@ app.post("/api/pair", async (req, res) => {
           const sessionId = encodeSession(sessionDir);
           entry.status = "ready";
           entry.sessionId = sessionId;
+          entry.error = null;
 
           const ownJid = sock.user.id;
           await sock.sendMessage(ownJid, {
@@ -94,7 +106,7 @@ app.post("/api/pair", async (req, res) => {
         } catch (err) {
           entry.status = "error";
           entry.error = "Linked, but failed to generate/send session id.";
-          console.error(err);
+          console.error(`[PAIR] ${requestId} linked but failed to send session id:`, err);
         }
         setTimeout(() => sock.end(undefined), 4000);
       }
@@ -110,11 +122,29 @@ app.post("/api/pair", async (req, res) => {
 
     res.json({ requestId, code: entry.code || null });
   } catch (err) {
-    console.error(err);
+    console.error(`[PAIR] ${requestId} failed to start pairing:`, err);
     entry.status = "error";
     entry.error = "Failed to start pairing. Try again.";
     res.status(500).json({ error: entry.error });
   }
+});
+
+app.get("/api/pair/status/:requestId", (req, res) => {
+  const { requestId } = req.params;
+  const entry = pairRequests.get(requestId);
+
+  if (!entry) {
+    return res.status(404).json({ status: "not_found", error: "Pairing request not found." });
+  }
+
+  res.json({
+    requestId,
+    status: entry.status,
+    code: entry.code || null,
+    sessionId: entry.sessionId || null,
+    error: entry.error || null,
+    lastDisconnect: entry.lastDisconnect || null,
+  });
 });
 
 // ───────── Deploy existing session ─────────

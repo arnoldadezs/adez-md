@@ -21,6 +21,10 @@ const app = express();
 app.use(express.json({ limit: "5mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "pair.html"));
+});
+
 const TEMP_DIR = path.join(__dirname, "temp_sessions");
 const DEPLOY_DIR = path.join(__dirname, "deployed_sessions");
 fs.mkdirSync(TEMP_DIR, { recursive: true });
@@ -112,3 +116,49 @@ app.post("/api/pair", async (req, res) => {
     res.status(500).json({ error: entry.error });
   }
 });
+
+// ───────── Deploy existing session ─────────
+
+app.post("/api/deploy", async (req, res) => {
+  const { sessionId } = req.body || {};
+  if (!sessionId || !String(sessionId).startsWith("ADEZ~")) {
+    return res.status(400).json({ error: "Valid session ID is required." });
+  }
+
+  const sessionKey = crypto.randomBytes(6).toString("hex");
+  const targetDir = path.join(DEPLOY_DIR, sessionKey);
+
+  try {
+    decodeSession(sessionId, targetDir);
+    const bot = await startBot(targetDir, {
+      onOpen: () => {
+        console.log(`[DEPLOY] Bot online: ${sessionKey}`);
+      },
+      onClose: (statusCode) => {
+        console.log(`[DEPLOY] Bot closed: ${sessionKey} code=${statusCode}`);
+      },
+    });
+
+    runningBots.set(sessionKey, { sessionId, status: "online", sock: bot });
+    res.json({ ok: true, sessionKey, status: "online" });
+  } catch (err) {
+    console.error(err);
+    res.status(400).json({ error: "Invalid or corrupted session ID." });
+  }
+});
+
+app.get("/api/status", (req, res) => {
+  res.json({
+    ok: true,
+    port: config.PORT,
+    pairRequests: pairRequests.size,
+    runningBots: runningBots.size,
+  });
+});
+
+const PORT = config.PORT;
+app.listen(PORT, () => {
+  console.log(`🚀 ADEZ MD server listening on port ${PORT}`);
+});
+
+module.exports = app;

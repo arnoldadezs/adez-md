@@ -1,7 +1,7 @@
 {
-  "name": "adez-bot",
+  "name": "adez-md",
   "version": "1.0.0",
-  "description": "ADEZ BOT - WhatsApp bot powered by Baileys, owned by ARNOLD ADEZ",
+  "description": "ADEZ MD - WhatsApp bot powered by Baileys, owned by ARNOLD ADEZ",
   "main": "index.js",
   "type": "commonjs",
   "scripts": {

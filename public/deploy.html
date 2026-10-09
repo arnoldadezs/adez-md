@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ADEZ MD — Deploy</title>
+<style>
+  :root {
+    --bg: #0b1120;
+    --card: #131c31;
+    --accent: #3b82f6;
+    --accent-dim: #2563eb;
+    --text: #e5e7eb;
+    --muted: #94a3b8;
+    --danger: #ef4444;
+    --ok: #22c55e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at top, #172038, var(--bg));
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--text);
+    padding: 24px;
+  }
+  .card {
+    width: 100%;
+    max-width: 460px;
+    background: var(--card);
+    border-radius: 16px;
+    padding: 32px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  h1 { margin: 0 0 4px; font-size: 22px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px; }
+  textarea {
+    width: 100%;
+    min-height: 120px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: #0e1526;
+    color: var(--text);
+    font-size: 13px;
+    font-family: monospace;
+    resize: vertical;
+    margin-bottom: 16px;
+  }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  button {
+    width: 100%;
+    padding: 13px;
+    border-radius: 10px;
+    border: none;
+    background: var(--accent);
+    color: #06132b;
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+  }
+  button:hover { background: var(--accent-dim); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .status {
+    margin-top: 20px;
+    padding: 16px;
+    border-radius: 10px;
+    background: #0e1526;
+    font-size: 14px;
+    line-height: 1.6;
+    display: none;
+  }
+  .status.show { display: block; }
+  .ok { color: var(--ok); }
+  .error { color: var(--danger); }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--accent); margin-right:6px; animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .footer { margin-top: 20px; text-align: center; font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>🚀 ADEZ MD — Deploy</h1>
+    <div class="sub">Paste the session ID you received in WhatsApp after pairing.</div>
+
+    <form id="deployForm">
+      <label for="sessionId">Session ID</label>
+      <textarea id="sessionId" placeholder="ADEZ~........" required></textarea>
+      <button id="deployBtn" type="submit">Deploy Bot</button>
+    </form>
+
+    <div id="status" class="status"></div>
+    <div class="footer">Owner: ARNOLD ADEZ · +254111783552 · Prefix: .</div>
+  </div>
+
+<script>
+  const form = document.getElementById("deployForm");
+  const statusBox = document.getElementById("status");
+  const deployBtn = document.getElementById("deployBtn");
+  let poller = null;
+
+  function showStatus(html, cls) {
+    statusBox.className = "status show" + (cls ? " " + cls : "");
+    statusBox.innerHTML = html;
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const sessionId = document.getElementById("sessionId").value.trim();
+    if (!sessionId.startsWith("ADEZ~")) {
+      showStatus("Session ID should start with <code>ADEZ~</code>. Check you copied it fully.", "error");
+      return;
+    }
+
+    deployBtn.disabled = true;
+    deployBtn.textContent = "Deploying...";
+    showStatus('<span class="dot"></span> Deploying ADEZ MD with this session...');
+
+    try {
+      const res = await fetch("/api/deploy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        showStatus(data.error || "Deployment failed.", "error");
+        deployBtn.disabled = false;
+        deployBtn.textContent = "Deploy Bot";
+        return;
+      }
+
+      if (data.status === "already_running") {
+        showStatus("ℹ️ This bot is already deployed and running.", "ok");
+        deployBtn.disabled = false;
+        deployBtn.textContent = "Deploy Bot";
+        return;
+      }
+
+      showStatus('<span class="dot"></span> Connecting to WhatsApp...');
+      poller = setInterval(() => pollStatus(data.id), 2000);
+    } catch (err) {
+      showStatus("Network error. Is the deploy server running?", "error");
+      deployBtn.disabled = false;
+      deployBtn.textContent = "Deploy Bot";
+    }
+  });
+
+  async function pollStatus(id) {
+    try {
+      const res = await fetch(`/api/deploy/status/${id}`);
+      const data = await res.json();
+
+      if (data.running && data.status === "online") {
+        clearInterval(poller);
+        showStatus("✅ <b>ADEZ MD is online!</b> Try sending <code>.menu</code> from any chat.", "ok");
+        deployBtn.disabled = false;
+        deployBtn.textContent = "Deploy Bot";
+      } else if (data.status === "offline") {
+        clearInterval(poller);
+        showStatus("⚠️ Bot disconnected. Deploy again if this persists.", "error");
+        deployBtn.disabled = false;
+        deployBtn.textContent = "Deploy Bot";
+      }
+    } catch (err) {
+      // keep polling silently
+    }
+  }
+</script>
+</body>
+  </html>

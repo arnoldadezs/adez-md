@@ -10,6 +10,7 @@ const {
   default: makeWASocket,
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
+  Browsers,
 } = require("@whiskeysockets/baileys");
 const pino = require("pino");
 const { encodeSession, decodeSession } = require("./lib/sessionCodec");
@@ -52,12 +53,26 @@ app.post("/api/pair", async (req, res) => {
       auth: state,
       logger: pino({ level: "silent" }),
       printQRInTerminal: false,
-      browser: [config.BOT_NAME, "Chrome", "1.0.0"],
+      // WhatsApp's pairing-code flow is picky — it needs a browser identity it
+      // recognizes. A made-up name here (e.g. the bot's own name) causes codes
+      // that look valid but never finish linking. Browsers.ubuntu() is a
+      // known-good identity built into Baileys for exactly this.
+      browser: Browsers.ubuntu("Chrome"),
     });
 
     sock.ev.on("creds.update", saveCreds);
 
     sock.ev.on("connection.update", async (update) => {
+      if (update.connection === "close") {
+        const statusCode = update.lastDisconnect?.error?.output?.statusCode;
+        const reason = update.lastDisconnect?.error?.message;
+        entry.status = entry.status === "ready" ? entry.status : "error";
+        if (entry.status === "error") {
+          entry.error = `Connection closed before linking finished (code ${statusCode || "?"}).`;
+        }
+        console.log(`[PAIR] Connection closed for ${requestId}. code=${statusCode} reason=${reason}`);
+      }
+
       if (update.connection === "open") {
         try {
           const sessionId = encodeSession(sessionDir);
@@ -82,7 +97,7 @@ app.post("/api/pair", async (req, res) => {
     });
 
     if (!state.creds.registered) {
-      await new Promise((r) => setTimeout(r, 1500));
+      await new Promise((r) => setTimeout(r, 3000));
       const code = await sock.requestPairingCode(digitsOnly);
       entry.status = "code_ready";
       entry.code = code;
@@ -96,68 +111,4 @@ app.post("/api/pair", async (req, res) => {
     entry.error = "Failed to start pairing. Try again.";
     res.status(500).json({ error: entry.error });
   }
-});
-
-app.get("/api/pair/status/:id", (req, res) => {
-  const data = pairRequests.get(req.params.id);
-  if (!data) return res.status(404).json({ error: "Unknown request id" });
-  res.json(data);
-});
-
-// ───────── Deploy ─────────
-
-app.post("/api/deploy", async (req, res) => {
-  const sessionId = String(req.body.sessionId || "").trim();
-  if (!sessionId) {
-    return res.status(400).json({ error: "Session ID is required." });
-  }
-
-  const id = crypto.createHash("sha256").update(sessionId).digest("hex").slice(0, 16);
-
-  if (runningBots.has(id)) {
-    return res.json({ status: "already_running", id });
-  }
-
-  const sessionDir = path.join(DEPLOY_DIR, id);
-
-  try {
-    decodeSession(sessionId, sessionDir);
-  } catch (err) {
-    return res.status(400).json({ error: "That session ID looks invalid or corrupted." });
-  }
-
-  const entry = { sock: null, status: "starting" };
-  runningBots.set(id, entry);
-
-  try {
-    const sock = await startBot(sessionDir, {
-      onOpen: () => { entry.status = "online"; },
-      onClose: () => { entry.status = "offline"; },
-    });
-    entry.sock = sock;
-    res.json({ status: "deployed", id });
-  } catch (err) {
-    console.error(err);
-    runningBots.delete(id);
-    res.status(500).json({ error: "Failed to deploy bot with this session." });
-  }
-});
-
-app.get("/api/deploy/status/:id", (req, res) => {
-  const entry = runningBots.get(req.params.id);
-  if (!entry) return res.json({ running: false });
-  res.json({ running: true, status: entry.status });
-});
-
-// ───────── Pages ─────────
-
-app.get("/", (req, res) => res.redirect("/pair.html"));
-
-// ───────── Start (single port — required for Render/Railway/Heroku) ─────────
-
-const PORT = process.env.PORT || config.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`✅ ADEZ MD web services running on port ${PORT}`);
-  console.log(`   Pair:   /pair.html`);
-  console.log(`   Deploy: /deploy.html`);
 });
